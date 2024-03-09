@@ -2,7 +2,7 @@ OUTPUT_ARCH(aarch64)
 
 _link_base = 64k - 3 * 4k;
 
-SECTIONS 
+SECTIONS
 {
     /DISCARD/ : { *(.discard) *(.discard.*) }
     /DISCARD/ : {
@@ -14,27 +14,27 @@ SECTIONS
 
     .setup.data : {
         _setup_start = .;
-        base/setup.o(.setup.header)
+        *base/setup.o(.setup.header)
         . = _setup_start + 64;
-        base/setup.o(.setup.preset)
-        base/setup.o(.setup.data)
+        *base/setup.o(.setup.preset)
+        *base/setup.o(.setup.data)
         . = _setup_start + 4K;
     }
-    
+
     .setup.text : {
-        base/setup1.o(.entry.text)
-        base/setup1.o(.text)
-        base/setup.o(.text)
+        *base/setup1.o(.entry.text)
+        *base/setup1.o(.text)
+        *base/setup.o(.text)
         _setup_end = .;
     }
 
     . = ALIGN(16);
     .setup.map : {
         _map_start = .;
-        base/map.o(.map.data)
-        base/map.o(.map.text)
-        base/map.o(.text)
-        base/map1.o(.text)
+        *base/map.o(.map.data)
+        *base/map.o(.map.text)
+        *base/map.o(.text)
+        *base/map1.o(.text)
         . = ALIGN(16);
         _map_end = .;
     }
@@ -45,29 +45,29 @@ SECTIONS
     .kp.text : {
         _kp_text_start = .;
 
-        base/start.o(.start.text)
-        base/start.o(.text)
-        
-        base/hook.o(.transit0.text);
+        *base/start.o(.start.text)
+        *base/start.o(.text)
+
+        *base/hook.o(.transit0.text);
         _transit0_end = .;
-        base/hook.o(.transit4.text);
+        *base/hook.o(.transit4.text);
         _transit4_end = .;
-        base/hook.o(.transit8.text);
+        *base/hook.o(.transit8.text);
         _transit8_end = .;
-        base/hook.o(.transit12.text);
+        *base/hook.o(.transit12.text);
         _transit12_end = .;
 
-        base/fphook.o(.fp.transit0.text);
+        *base/fphook.o(.fp.transit0.text);
         _fp_transit0_end = .;
-        base/fphook.o(.fp.transit4.text);
+        *base/fphook.o(.fp.transit4.text);
         _fp_transit4_end = .;
-        base/fphook.o(.fp.transit8.text);
+        *base/fphook.o(.fp.transit8.text);
         _fp_transit8_end = .;
-        base/fphook.o(.fp.transit12.text);
+        *base/fphook.o(.fp.transit12.text);
         _fp_transit12_end = .;
 
-        base/*(.text)
-        base/*(.rodata*)
+        *base/*(.text)
+        *base/*(.rodata*)
 
         *(.text)
         *(.rodata*)
@@ -80,9 +80,9 @@ SECTIONS
     . = ALIGN(64k);
     .kp.data : {
         _kp_data_start = .;
-        base/start.o(.start.data)
-        base/*(.data)
-        base/*(.bss)
+        *base/start.o(.start.data)
+        *base/*(.data)
+        *base/*(.bss)
         *(.data)
         *(.bss)
         . = ALIGN(16);

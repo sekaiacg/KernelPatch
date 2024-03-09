@@ -170,11 +170,10 @@ static int simplify_symbols(struct module *mod, const struct load_info *info)
 {
     Elf_Shdr *symsec = &info->sechdrs[info->index.sym];
     Elf_Sym *sym = (void *)symsec->sh_addr;
-    unsigned long secbase;
-    unsigned int i;
+    uint64_t secbase, addr;
     int ret = 0;
 
-    for (i = 1; i < symsec->sh_size / sizeof(Elf_Sym); i++) {
+    for (int i = 1; i < symsec->sh_size / sizeof(Elf_Sym); i++) {
         const char *name = info->strtab + sym[i].st_name;
         switch (sym[i].st_shndx) {
         case SHN_COMMON:
@@ -186,7 +185,7 @@ static int simplify_symbols(struct module *mod, const struct load_info *info)
         case SHN_ABS:
             break;
         case SHN_UNDEF:
-            unsigned long addr = symbol_lookup_name(name);
+            addr = symbol_lookup_name(name);
             // kernel symbol cause overflow in relocation
             // if (!addr) addr = kallsyms_lookup_name(name);
             if (!addr) {

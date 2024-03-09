@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <sys/syscall.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stddef.h>
 #include <string.h>
 #include <errno.h>
