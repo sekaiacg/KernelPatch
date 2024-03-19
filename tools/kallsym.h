@@ -8,6 +8,8 @@
 
 #include <stdint.h>
 
+#include "image.h"
+
 // script/kallsym.c
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof(arr[0]))
 
@@ -125,7 +127,7 @@ static void *memmem(const void *haystack, size_t haystack_len, const void *const
 }
 #endif
 
-int analyze_kallsym_info(kallsym_t *info, char *img, int32_t imglen, enum arch_type arch, int32_t is_64);
+int analyze_kallsym_info(kernel_info_t *kinfo, kallsym_t *info, char *img, int32_t imglen);
 int dump_all_symbols(kallsym_t *info, char *img);
 int get_symbol_index_offset(kallsym_t *info, char *img, int32_t index);
 int get_symbol_offset_and_size(kallsym_t *info, char *img, char *symbol, int32_t *size);

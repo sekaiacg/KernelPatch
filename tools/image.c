@@ -11,6 +11,7 @@
 
 #include "order.h"
 #include "common.h"
+#include "kallsym.h"
 
 #define EFI_MAGIC_SIG "MZ"
 #define KERNEL_MAGIC "ARM\x64"
@@ -54,32 +55,71 @@ typedef struct
     } pe;
 } arm64_hdr_t;
 
-int32_t get_kernel_info(kernel_info_t *kinfo, const char *img, int32_t imglen)
+void readKernelImage(kernel_info_t *kinfo, const char *path, char **con, int *len)
 {
-    kinfo->img_offset = 0;
-
-    if (!strncmp("UNCOMPRESSED_IMG", img, strlen("UNCOMPRESSED_IMG"))) {
-        kinfo->img_offset = 0x14;
+    kinfo->is_uncompressed_img = 0;
+    kinfo->dtb_offset = 0;
+    kinfo->kimg_offset = 0;
+    char buf[UNCOMPRESSED_IMG_MAGIC_LEN + 4] = { 0 };
+    int32_t img_header_size = UNCOMPRESSED_IMG_MAGIC_LEN + 4;
+    file_read(path, buf, 0, img_header_size);
+    if (!strncmp(UNCOMPRESSED_IMG_MAGIC, buf, UNCOMPRESSED_IMG_MAGIC_LEN)) {
+        kinfo->is_uncompressed_img = 1;
+        kinfo->dtb_offset = UNCOMPRESSED_IMG_MAGIC_LEN;
+        kinfo->kimg_offset = img_header_size;
+        kinfo->kimg_real_size = get_file_size(path) - img_header_size;
         tools_logw("kernel image with UNCOMPRESSED_IMG header\n");
     }
+    if (kinfo->is_uncompressed_img) {
+        int32_t size = kinfo->kimg_real_size;
+        *len = size;
+        *con = malloc(size);
+        file_read(path, *con, kinfo->kimg_offset, size);
+    } else {
+        read_file(path, con, len);
+    }
+}
 
+void appendImageHeader(const kernel_info_t *kinfo, const char *path)
+{
+    int file_size = get_file_size(path);
+    int file_total_size = file_size + kinfo->kimg_offset;
+
+    char *img = malloc(file_total_size);
+    if (!img) tools_log_errno_exit("malloc fail, size: %d", file_total_size);
+    file_read(path, img + kinfo->kimg_offset, 0, file_size);
+
+    int32_t dtb_offset_value = file_size;
+    dtb_offset_value = kinfo->is_be ? i32be(dtb_offset_value) : i32le(dtb_offset_value);
+    memcpy(img, UNCOMPRESSED_IMG_MAGIC, UNCOMPRESSED_IMG_MAGIC_LEN);
+    memcpy(img + kinfo->dtb_offset, &dtb_offset_value, sizeof(dtb_offset_value));
+
+    write_file(path, (void *)img, file_total_size, false);
+    free(img);
+}
+
+int32_t get_kernel_info(kernel_info_t *kinfo, const char *img, int32_t imglen)
+{
     kinfo->is_be = 0;
 
-    arm64_hdr_t *khdr = (arm64_hdr_t *)(img + kinfo->img_offset);
+    arm64_hdr_t *khdr = (arm64_hdr_t *)img;
     if (strncmp(khdr->magic, KERNEL_MAGIC, strlen(KERNEL_MAGIC))) {
         tools_loge_exit("kernel image magic error: %s\n", khdr->magic);
     }
 
+    // KERNEL_MAGIC is arm64
+    kinfo->is_64 = 1;
+    kinfo->arch = ARM64;
     kinfo->uefi = !strncmp((const char *)khdr->hdr.efi.mz, EFI_MAGIC_SIG, strlen(EFI_MAGIC_SIG));
 
     uint32_t b_primary_entry_insn;
     uint32_t b_stext_insn_offset;
     if (kinfo->uefi) {
         b_primary_entry_insn = khdr->hdr.efi.b_insn;
-        b_stext_insn_offset = 4 + kinfo->img_offset;
+        b_stext_insn_offset = 4;
     } else {
         b_primary_entry_insn = khdr->hdr.nefi.b_insn;
-        b_stext_insn_offset = 0 + kinfo->img_offset;
+        b_stext_insn_offset = 0;
     }
     kinfo->b_stext_insn_offset = b_stext_insn_offset;
 
@@ -120,9 +160,9 @@ int32_t get_kernel_info(kernel_info_t *kinfo, const char *img, int32_t imglen)
     return 0;
 }
 
-int32_t kernel_resize(kernel_info_t *kinfo, char *img, int32_t size)
+int32_t kernel_resize(kernel_info_t *kinfo, char *kimg, int32_t size)
 {
-    arm64_hdr_t *khdr = (arm64_hdr_t *)(img + kinfo->img_offset);
+    arm64_hdr_t *khdr = (arm64_hdr_t *)(kimg);
     uint64_t ksize = size;
     if (is_be() ^ kinfo->is_be) ksize = u64swp(size);
     khdr->kernel_size_le = ksize;

@@ -190,7 +190,9 @@ int parse_image_patch_info_path(const char *kimg_path, patched_kimg_t *pimg)
 
     char *kimg;
     int kimg_len;
-    read_file(kimg_path, &kimg, &kimg_len);
+    kernel_info_t kinfo = { 0 };
+
+    readKernelImage(&kinfo, kimg_path, &kimg, &kimg_len);
     int rc = parse_image_patch_info(kimg, kimg_len, pimg);
     free(kimg);
     return rc;
@@ -249,7 +251,9 @@ int print_image_patch_info_path(const char *kimg_path)
     patched_kimg_t pimg = { 0 };
     char *kimg;
     int kimg_len;
-    read_file(kimg_path, &kimg, &kimg_len);
+
+    kernel_info_t *kinfo = &pimg.kinfo;
+    readKernelImage(kinfo, kimg_path, &kimg, &kimg_len);
     int rc = parse_image_patch_info(kimg, kimg_len, &pimg);
     print_image_patch_info(&pimg);
     free(kimg);
@@ -276,20 +280,23 @@ int patch_update_img(const char *kimg_path, const char *kpimg_path, const char *
     patched_kimg_t pimg = { 0 };
     char *kimg;
     int kimg_len;
-    read_file(kimg_path, &kimg, &kimg_len);
+
+    // kimg base info
+    kernel_info_t *kinfo = &pimg.kinfo;
+
+    readKernelImage(kinfo, kimg_path, &kimg, &kimg_len);
+
     int rc = parse_image_patch_info(kimg, kimg_len, &pimg);
     if (rc) tools_loge_exit("parse kernel image error\n");
     // print_image_patch_info(&pimg);
 
-    // kimg base info
-    kernel_info_t *kinfo = &pimg.kinfo;
     int align_kernel_size = align_ceil(kinfo->kernel_size, SZ_4K);
 
     // kimg kallsym
     char *kallsym_kimg = (char *)malloc(pimg.ori_kimg_len);
     memcpy(kallsym_kimg, pimg.kimg, pimg.ori_kimg_len);
     kallsym_t kallsym = { 0 };
-    if (analyze_kallsym_info(&kallsym, kallsym_kimg, pimg.ori_kimg_len, ARM64, 1)) {
+    if (analyze_kallsym_info(kinfo, &kallsym, kallsym_kimg, pimg.ori_kimg_len)) {
         tools_loge_exit("analyze_kallsym_info error\n");
     }
 
@@ -466,7 +473,7 @@ int patch_update_img(const char *kimg_path, const char *kpimg_path, const char *
     fillin_map_symbol(&kallsym, kallsym_kimg, &setup->map_symbol, kinfo->is_be);
 
     // header backup
-    memcpy(setup->header_backup, kallsym_kimg, sizeof(setup->header_backup));
+    memcpy(setup->header_backup, kimg, sizeof(setup->header_backup));
 
     // start symbol
     fillin_patch_symbol(&kallsym, kallsym_kimg, ori_kimg_len, &setup->patch_symbol, kinfo->is_be, 0);
@@ -537,6 +544,9 @@ int patch_update_img(const char *kimg_path, const char *kpimg_path, const char *
     free(out_img);
     free(kimg);
 
+    // append image header
+    if (kinfo->is_uncompressed_img) appendImageHeader(kinfo, out_path);
+
     tools_logi("patch done: %s\n", out_path);
 
     set_log_enable(false);
@@ -550,7 +560,10 @@ int unpatch_img(const char *kimg_path, const char *out_path)
 
     char *kimg = NULL;
     int kimg_len = 0;
-    read_file(kimg_path, &kimg, &kimg_len);
+    kernel_info_t kinfo = { 0 };
+    readKernelImage(&kinfo, kimg_path, &kimg, &kimg_len);
+
+    if (get_kernel_info(&kinfo, kimg, kimg_len)) return -1;
 
     preset_t *preset = get_preset(kimg, kimg_len);
     if (!preset) tools_loge_exit("not patched kernel image\n");
@@ -560,6 +573,9 @@ int unpatch_img(const char *kimg_path, const char *out_path)
 
     write_file(out_path, kimg, kimg_size, false);
     free(kimg);
+
+    if (kinfo.is_uncompressed_img) appendImageHeader(&kinfo, out_path);
+
     return 0;
 }
 
@@ -600,8 +616,11 @@ int dump_kallsym(const char *kimg_path)
     int kimg_len = 0;
     read_file(kimg_path, &kimg, &kimg_len);
 
-    kallsym_t kallsym;
-    if (analyze_kallsym_info(&kallsym, kimg, kimg_len, ARM64, 1)) {
+    kernel_info_t kinfo = { 0 };
+    readKernelImage(&kinfo, kimg_path, &kimg, &kimg_len);
+    if (get_kernel_info(&kinfo, kimg, kimg_len)) tools_loge_exit("get_kernel_info error\n");
+    kallsym_t kallsym = { 0 };
+    if (analyze_kallsym_info(&kinfo, &kallsym, kimg, kimg_len)) {
         fprintf(stdout, "analyze_kallsym_info error\n");
         return -1;
     }

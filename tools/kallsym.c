@@ -16,6 +16,7 @@
 #include "order.h"
 #include "insn.h"
 #include "common.h"
+#include "image.h"
 
 static int find_linux_banner(kallsym_t *info, char *img, int32_t imglen)
 {
@@ -807,21 +808,14 @@ R kallsyms_markers
 R kallsyms_token_table
 R kallsyms_token_index
 */
-int analyze_kallsym_info(kallsym_t *info, char *img, int32_t imglen, enum arch_type arch, int32_t is_64)
+int analyze_kallsym_info(kernel_info_t *kinfo, kallsym_t *info, char *img, int32_t imglen)
 {
     memset(info, 0, sizeof(kallsym_t));
-    info->is_64 = is_64;
+    if (kinfo->arch == ARM64) info->try_relo = 1;
+    info->is_64 = kinfo->is_64;
     info->asm_long_size = 4;
     info->asm_PTR_size = 4;
-    if (arch == ARM64) info->try_relo = 1;
-    if (is_64) info->asm_PTR_size = 8;
-
-    info->img_offset = 0;
-    if (!strncmp("UNCOMPRESSED_IMG", img, strlen("UNCOMPRESSED_IMG"))) {
-        info->img_offset = 0x14;
-    }
-    img += info->img_offset;
-    imglen -= info->img_offset;
+    if (info->is_64) info->asm_PTR_size = 8;
 
     int rc = -1;
     static int32_t (*base_funcs[])(kallsym_t *, char *, int32_t) = {
@@ -856,8 +850,6 @@ out:
 
 int32_t get_symbol_index_offset(kallsym_t *info, char *img, int32_t index)
 {
-    img = img + info->img_offset;
-
     int32_t elem_size;
     int32_t pos;
     if (info->has_relative_base) {
@@ -874,8 +866,6 @@ int32_t get_symbol_index_offset(kallsym_t *info, char *img, int32_t index)
 
 int get_symbol_offset_and_size(kallsym_t *info, char *img, char *symbol, int32_t *size)
 {
-    img = img + info->img_offset;
-
     char decomp[KSYM_SYMBOL_LEN] = { '\0' };
     char type = 0;
     *size = 0;
@@ -904,8 +894,6 @@ int get_symbol_offset_and_size(kallsym_t *info, char *img, char *symbol, int32_t
 
 int get_symbol_offset(kallsym_t *info, char *img, char *symbol)
 {
-    img = img + info->img_offset;
-
     char decomp[KSYM_SYMBOL_LEN] = { '\0' };
     char type = 0;
     char **tokens = info->kallsyms_token_table;
@@ -925,8 +913,6 @@ int get_symbol_offset(kallsym_t *info, char *img, char *symbol)
 
 int dump_all_symbols(kallsym_t *info, char *img)
 {
-    img = img + info->img_offset;
-
     char symbol[KSYM_SYMBOL_LEN] = { '\0' };
     char type = 0;
     char **tokens = info->kallsyms_token_table;
@@ -943,8 +929,6 @@ int dump_all_symbols(kallsym_t *info, char *img)
 int on_each_symbol(kallsym_t *info, char *img, void *userdata,
                    int32_t (*fn)(int32_t index, char type, const char *symbol, int32_t offset, void *userdata))
 {
-    img = img + info->img_offset;
-
     char symbol[KSYM_SYMBOL_LEN] = { '\0' };
     char type = 0;
     char **tokens = info->kallsyms_token_table;

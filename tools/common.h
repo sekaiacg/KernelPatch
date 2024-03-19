@@ -50,6 +50,10 @@ extern bool log_enable;
 #define sign64_extend(n, len) \
     (((uint64_t)((n) << (63u - (len - 1))) >> 63u) ? ((n) | (0xFFFFFFFFFFFFFFFF << (len))) : n)
 
+#ifndef O_BINARY
+#define O_BINARY 0
+#endif
+
 static inline void set_log_enable(bool enable)
 {
     log_enable = enable;
@@ -62,6 +66,10 @@ int32_t relo_branch_func(const char *img, int32_t func_offset);
 void write_file(const char *path, const char *con, int len, bool append);
 
 void read_file_align(const char *path, char **con, int *len, int align);
+
+int32_t get_file_size(const char *path);
+
+int file_read(const char *path, void *buf, uint64_t offset, size_t len);
 
 int64_t int_unpack(void *ptr, int32_t size, bool is_be);
 uint64_t uint_unpack(void *ptr, int32_t size, bool is_be);
