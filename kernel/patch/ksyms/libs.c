@@ -21,6 +21,26 @@ static void _linux_lib_misc(const char *name, unsigned long addr)
 
 #include <linux/uaccess.h>
 
+void kfunc_def(__check_object_size)(const void *ptr, unsigned long n, bool to_user) = 0;
+KP_EXPORT_SYMBOL(kfunc(__check_object_size));
+unsigned long kfunc_def(__copy_from_user)(void *to, const void __user *from, unsigned long n) = 0;
+KP_EXPORT_SYMBOL(kfunc(__copy_from_user));
+unsigned long kfunc_def(__arch_copy_from_user)(void *to, const void __user *from, unsigned long n) = 0;
+KP_EXPORT_SYMBOL(kfunc(__arch_copy_from_user));
+unsigned long kfunc_def(__copy_to_user)(void __user *to, const void *from, unsigned long n) = 0;
+KP_EXPORT_SYMBOL(kfunc(__copy_to_user));
+unsigned long kfunc_def(__arch_copy_to_user)(void __user *to, const void *from, unsigned long n) = 0;
+KP_EXPORT_SYMBOL(kfunc(__arch_copy_to_user));
+
+static void _linux_lib_copy_from_user_sym_match(const char *name, unsigned long addr)
+{
+    kfunc_match(__check_object_size, name, addr);
+    kfunc_match(__copy_from_user, name, addr);
+    kfunc_match(__arch_copy_from_user, name, addr);
+    kfunc_match(__copy_to_user, name, addr);
+    kfunc_match(__arch_copy_to_user, name, addr);
+}
+
 long kfunc_def(strncpy_from_user_nofault)(char *dst, const void __user *unsafe_addr, long count) = 0;
 long kfunc_def(strncpy_from_unsafe_user)(char *dst, const void __user *unsafe_addr, long count) = 0;
 long kfunc_def(strncpy_from_user)(char *dest, const char __user *src, long count) = 0;
@@ -249,6 +269,7 @@ static void _linux_include_kernel_sym_match(const char *name, unsigned long addr
 static int _linux_libs_symbol_init(void *data, const char *name, struct module *m, unsigned long addr)
 {
     _linux_lib_misc(name, addr);
+    _linux_lib_copy_from_user_sym_match(name, addr);
     _linux_lib_strncpy_from_user_sym_match(name, addr);
     _linux_lib_string_sym_match(name, addr);
     _linux_lib_argv_split_sym_match(name, addr);

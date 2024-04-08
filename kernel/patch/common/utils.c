@@ -6,6 +6,7 @@
 #include <kputils.h>
 #include <linux/seq_buf.h>
 #include <linux/trace_seq.h>
+#include <linux/thread_info.h>
 #include <pgtable.h>
 #include <linux/string.h>
 #include <symbol.h>
@@ -15,6 +16,7 @@
 #include <linux/err.h>
 #include <linux/errno.h>
 #include <linux/random.h>
+#include <linux/uaccess.h>
 
 extern int kfunc_def(xt_data_to_user)(void __user *dst, const void *src, int usersize, int size, int aligned_size);
 
@@ -156,3 +158,21 @@ uint64_t get_random_u64(void)
     return rand_next();
 }
 KP_EXPORT_SYMBOL(get_random_u64);
+
+unsigned long __must_check kp_copy_from_user(void *to, const void __user *from, unsigned long n)
+{
+    if (likely(kver >= VERSION(4, 8, 1))) {
+        check_copy_size(to, n, false);
+    }
+    return raw_copy_from_user(to, from, n);
+}
+KP_EXPORT_SYMBOL(kp_copy_from_user);
+
+unsigned long __must_check kp_copy_to_user(void __user *to, const void *from, unsigned long n)
+{
+    if (likely(kver >= VERSION(4, 8, 1))) {
+        check_copy_size(from, n, true);
+    }
+    return raw_copy_to_user(to, from, n);
+}
+KP_EXPORT_SYMBOL(kp_copy_to_user);

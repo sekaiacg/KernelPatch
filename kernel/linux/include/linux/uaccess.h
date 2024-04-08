@@ -6,9 +6,28 @@
 
 #define get_fs() (current_thread_info()->addr_limit)
 
+extern unsigned long kfunc_def(__copy_from_user)(void *to, const void __user *from, unsigned long n);
+// 4.8.1 or latest
+extern unsigned long kfunc_def(__arch_copy_from_user)(void *to, const void __user *from, unsigned long n);
+static inline unsigned long __must_check raw_copy_from_user(void *to, const void __user *from, unsigned long n)
+{
+    kfunc_call(__arch_copy_from_user, to, from, n); // 4.8.1 or latest
+    kfunc_call(__copy_from_user, to, from, n);
+    return n;
+}
+
+extern unsigned long kfunc_def(__copy_to_user)(void __user *to, const void *from, unsigned long n);
+// 4.8.1 or latest
+extern unsigned long kfunc_def(__arch_copy_to_user)(void __user *to, const void *from, unsigned long n);
+static inline unsigned long __must_check raw_copy_to_user(void __user *to, const void *from, unsigned long n)
+{
+    kfunc_call(__arch_copy_to_user, to, from, n);
+    kfunc_call(__copy_to_user, to, from, n);
+    return n;
+}
+
 // todo:
 // probe_user_write
-// unsigned long __must_check copy_from_user(void *to, const void __user *from, unsigned long n);
 // unsigned long __must_check copy_to_user(void __user *to, const void *from, unsigned long n);
 // unsigned long __must_check copy_in_user(void __user *to, const void __user *from, unsigned long n);
 
