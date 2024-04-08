@@ -24,6 +24,7 @@
 #include <symbol.h>
 #include <linux/mm_types.h>
 #include <asm/processor.h>
+#include <linux/nsproxy.h>
 
 #define TASK_COMM_LEN 16
 
@@ -75,6 +76,7 @@ struct task_struct_offset task_struct_offset = {
     .tasks_offset = -1,
     .mm_offset = -1,
     .active_mm_offset = -1,
+    .nsproxy_offset = -1,
 };
 KP_EXPORT_SYMBOL(task_struct_offset);
 
@@ -116,6 +118,7 @@ KP_EXPORT_SYMBOL(cred_offset);
 struct task_struct *init_task = 0;
 const struct cred *init_cred = 0;
 const struct mm_struct *init_mm = 0;
+const struct nsproxy *init_nsproxy = 0;
 
 int thread_size = 0;
 KP_EXPORT_SYMBOL(thread_size);
@@ -454,6 +457,20 @@ int resolve_task_offset()
         // todo
     }
     log_boot("    active_mm offset: %x\n", task_struct_offset.active_mm_offset);
+
+    init_nsproxy = (struct nsproxy *)kallsyms_lookup_name("init_nsproxy");
+    if (init_nsproxy) {
+        for (uintptr_t i = (uintptr_t)task; i < (uintptr_t)task + TASK_STRUCT_MAX_SIZE; i += sizeof(uintptr_t)) {
+            uintptr_t nsproxy = *(uintptr_t *)i;
+            if (nsproxy == (uintptr_t)init_nsproxy) {
+                task_struct_offset.nsproxy_offset = i - (uintptr_t)task;
+                break;
+            }
+        }
+    } else {
+        // todo
+    }
+    log_boot("    nsproxy offset: %x\n", task_struct_offset.nsproxy_offset);
 
     revert_current(backup);
     vfree(task);

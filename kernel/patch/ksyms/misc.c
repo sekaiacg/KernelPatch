@@ -441,6 +441,9 @@ void kfunc_def(final_putname)(struct filename *name) = 0;
 
 loff_t kfunc_def(vfs_llseek)(struct file *file, loff_t offset, int whence) = 0;
 
+int kfunc_def(kern_path)(const char *name, unsigned int flags, struct path *path) = 0;
+int kfunc_def(path_umount)(struct path *path, int flags) = 0;
+
 static void _linux_fs_sym_match(const char *name, unsigned long addr)
 {
     // kfunc_match(inc_nlink, name, addr);
@@ -460,6 +463,8 @@ static void _linux_fs_sym_match(const char *name, unsigned long addr)
     // kfunc_match(putname, name, addr);
     // kfunc_match(final_putname, name, addr);
     kfunc_match(vfs_llseek, name, addr);
+    kfunc_match(kern_path, name, addr);
+    kfunc_match(path_umount, name, addr);
 }
 
 #include <linux/stacktrace.h>
@@ -579,6 +584,12 @@ void kfunc_def(ebitmap_cache_init)(void) = 0;
 void kfunc_def(hashtab_cache_init)(void) = 0;
 int kfunc_def(security_sidtab_hash_stats)(char *page) = 0;
 
+void kfunc_def(security_task_getsecid)(struct task_struct *p, u32 *secid) = 0;
+void kfunc_def(security_task_getsecid_obj)(struct task_struct *p, u32 *secid) = 0;
+int kfunc_def(security_secctx_to_secid)(const char *secdata, u32 seclen, u32 *secid) = 0;
+int kfunc_def(security_secid_to_secctx)(u32 secid, char **secdata, u32 *seclen) = 0;
+void kfunc_def(security_release_secctx)(char *secdata, u32 seclen) = 0;
+
 static void _linux_security_selinux_sym_match(const char *name, unsigned long addr)
 {
     // kvar_match(selinux_enabled_boot, name, addr);
@@ -641,6 +652,11 @@ static void _linux_security_selinux_sym_match(const char *name, unsigned long ad
     // kfunc_match(ebitmap_cache_init, name, addr);
     // kfunc_match(hashtab_cache_init, name, addr);
     // kfunc_match(security_sidtab_hash_stats, name, addr);
+    kfunc_match(security_task_getsecid, name, addr);
+    kfunc_match(security_task_getsecid_obj, name, addr);
+    kfunc_match(security_secctx_to_secid, name, addr);
+    kfunc_match(security_secid_to_secctx, name, addr);
+    kfunc_match(security_release_secctx, name, addr);
 }
 
 #include <linux/security.h>

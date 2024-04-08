@@ -213,6 +213,15 @@ struct filename
  */
 #define FILE_LOCK_DEFERRED 1
 
+/*
+ *	Umount options
+ */
+#define MNT_FORCE 0x00000001 /* Attempt to forcibily umount */
+#define MNT_DETACH 0x00000002 /* Just detach from the tree */
+#define MNT_EXPIRE 0x00000004 /* Mark for expiry */
+#define UMOUNT_NOFOLLOW 0x00000008 /* Don't follow symlink on umount */
+#define UMOUNT_UNUSED 0x80000000 /* Flag guaranteed to be unused */
+
 /* legacy typedef, should eventually be removed */
 typedef void *fl_owner_t;
 struct cred;
@@ -221,6 +230,23 @@ struct file;
 struct path;
 struct dentry;
 struct inode;
+
+struct file_system_type
+{
+    const char *name;
+    int fs_flags;
+};
+
+struct super_block
+{
+    struct list_head s_list; /* Keep this first */
+    dev_t s_dev; /* search index; _not_ kdev_t */
+    unsigned char s_blocksize_bits;
+    unsigned long s_blocksize;
+    loff_t s_maxbytes; /* Max file size */
+    struct file_system_type *s_type;
+    const struct super_operations *s_op;
+};
 
 extern void kfunc_def(inc_nlink)(struct inode *inode);
 extern void kfunc_def(drop_nlink)(struct inode *inode);
@@ -244,6 +270,9 @@ extern void kfunc_def(putname)(struct filename *name);
 extern void kfunc_def(final_putname)(struct filename *name);
 
 extern loff_t kfunc_def(vfs_llseek)(struct file *file, loff_t offset, int whence);
+
+extern int kfunc_def(kern_path)(const char *name, unsigned int flags, struct path *path);
+extern int kfunc_def(path_umount)(struct path *path, int flags);
 
 //
 
@@ -355,6 +384,16 @@ static inline struct filename *getname_kernel(const char *filename)
 static inline loff_t vfs_llseek(struct file *file, loff_t offset, int whence)
 {
     kfunc_direct_call(vfs_llseek, file, offset, whence);
+}
+
+static inline int kern_path(const char *name, unsigned int flags, struct path *path)
+{
+    kfunc_direct_call(kern_path, name, flags, path);
+}
+
+static inline int path_umount(struct path *path, int flags)
+{
+    kfunc_direct_call(path_umount, path, flags);
 }
 
 static inline void putname(struct filename *name)

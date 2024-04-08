@@ -628,9 +628,8 @@ static inline int cap_vm_enough_memory(struct mm_struct *mm, long pages)
 
 static inline void security_task_getsecid(struct task_struct *task, u32 *secid)
 {
-    kfunc_call(security_task_getsecid, task, secid);
-    kfunc_call(security_task_getsecid_obj, task, secid);
-    kfunc_not_found();
+    kfunc_call_void(security_task_getsecid_obj, task, secid);
+    kfunc_call_void(security_task_getsecid, task, secid);
 }
 
 // When we are uncertain whether secctx exists or is correct, we cannot rely on security_secctx_to_secid; otherwise, secid might be set to an unexpected value.
@@ -651,7 +650,6 @@ static inline int security_secid_to_secctx(u32 secid, char **secdata, u32 *secle
 static inline void security_release_secctx(char *secdata, u32 seclen)
 {
     kfunc_call_void(security_release_secctx, secdata, seclen);
-    kfunc_not_found();
 }
 
 #endif
