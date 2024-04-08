@@ -59,6 +59,7 @@ struct task_struct_offset
     int16_t tasks_offset;
     int16_t mm_offset;
     int16_t active_mm_offset;
+    int16_t nsproxy_offset;
 };
 
 extern struct task_struct_offset task_struct_offset;
