@@ -17,6 +17,7 @@
 #include "kpatch.h"
 #include "su.h"
 #include "kpm.h"
+#include "uid.h"
 
 #ifdef ANDROID
 #include "android/sumgr.h"
@@ -110,6 +111,7 @@ int main(int argc, char **argv)
 #ifdef ANDROID
         { "sumgr", 'm' },
         { "android_user", 'a' },
+        { "uid_monitor", 'u' },
 #endif
     };
 
@@ -163,6 +165,8 @@ int main(int argc, char **argv)
         return sumgr_main(argc - 2, argv + 2);
     case 'a':
         return android_user(argc - 2, argv + 2);
+    case 'u':
+        return start_uid_monitor(key);
 #endif
 
     default:
