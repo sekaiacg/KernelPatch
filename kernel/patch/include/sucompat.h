@@ -19,5 +19,6 @@ struct allow_uid
 
 struct su_profile profile_su_allow_uid(uid_t uid);
 int is_su_allow_uid(uid_t uid);
+int is_uid_excluded(uid_t uid);
 
 #endif

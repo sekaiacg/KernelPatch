@@ -149,6 +149,8 @@ int fillin_patch_symbol(kallsym_t *kallsym, char *img_buf, int imglen, patch_sym
 
     symbol->input_handle_event = get_symbol_offset_zero(kallsym, img_buf, "input_handle_event");
 
+    symbol->cap_task_fix_setuid = get_symbol_offset_zero(kallsym, img_buf, "cap_task_fix_setuid");
+
     if ((is_be() ^ target_is_be)) {
         for (int64_t *pos = (int64_t *)symbol; pos <= (int64_t *)symbol; pos++) {
             *pos = i64swp(*pos);

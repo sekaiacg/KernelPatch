@@ -88,6 +88,12 @@ int is_su_allow_uid(uid_t uid)
 }
 KP_EXPORT_SYMBOL(is_su_allow_uid);
 
+int is_uid_excluded(uid_t uid)
+{
+    return 1;
+}
+KP_EXPORT_SYMBOL(is_uid_excluded);
+
 int su_add_allow_uid(uid_t uid, struct su_profile *profile, int async)
 {
     rcu_read_lock();
@@ -199,7 +205,7 @@ int su_allow_uid_profile(uid_t uid, struct su_profile *__user uprofile)
     {
         if (pos->profile.uid != uid) continue;
         int cplen = compat_copy_to_user(uprofile, &pos->profile, sizeof(struct su_profile));
-        logkfd("profile: %d %d %s\n", uid, pos->profile.to_uid, pos->profile.scontext);
+	logkfd("profile: %d %d %s\n", uid, pos->profile.to_uid, pos->profile.scontext);
         if (cplen <= 0) {
             logkfd("compat_copy_to_user error: %d", cplen);
             rc = cplen;

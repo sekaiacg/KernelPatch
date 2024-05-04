@@ -31,6 +31,7 @@ int su_allow_uid_profile(uid_t uid, struct su_profile *__user uprofile);
 int su_reset_path(const char *path);
 int su_get_path(char *__user ubuf, int buf_len);
 long supercall_android(long cmd, long arg1, long arg2, long arg3);
+int kp_umount_init();
 #endif
 
 #endif
