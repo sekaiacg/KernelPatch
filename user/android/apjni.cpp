@@ -134,11 +134,15 @@ extern "C" JNIEXPORT jobject JNICALL Java_me_bmax_apatch_Natives_nativeSuProfile
     jmethodID constructor = env->GetMethodID(cls, "<init>", "()V");
     jfieldID uidField = env->GetFieldID(cls, "uid", "I");
     jfieldID toUidField = env->GetFieldID(cls, "toUid", "I");
+    jfieldID allowField = env->GetFieldID(cls, "allow", "I");
+    jfieldID excludeField = env->GetFieldID(cls, "exclude", "I");
     jfieldID scontextFild = env->GetFieldID(cls, "scontext", "Ljava/lang/String;");
 
     jobject obj = env->NewObject(cls, constructor);
     env->SetIntField(obj, uidField, profile.uid);
     env->SetIntField(obj, toUidField, profile.to_uid);
+    env->SetIntField(obj, allowField, profile.allow);
+    env->SetIntField(obj, excludeField, profile.exclude);
     env->SetObjectField(obj, scontextFild, env->NewStringUTF(profile.scontext));
 
     return obj;
@@ -240,13 +244,16 @@ extern "C" JNIEXPORT jstring JNICALL Java_me_bmax_apatch_Natives_nativeKernelPat
 }
 
 extern "C" JNIEXPORT jlong JNICALL Java_me_bmax_apatch_Natives_nativeGrantSu(JNIEnv *env, jclass clz, jstring superKey,
-                                                                             jint uid, jint to_uid, jstring scontext)
+                                                                             jint allow, jint exclude, jint uid,
+                                                                             jint to_uid, jstring scontext)
 {
     const char *skey = env->GetStringUTFChars(superKey, NULL);
     const char *sctx = env->GetStringUTFChars(scontext, NULL);
     struct su_profile profile = { 0 };
     profile.uid = uid;
     profile.to_uid = to_uid;
+    profile.allow = allow;
+    profile.exclude = exclude;
     if (sctx) strncpy(profile.scontext, sctx, sizeof(profile.scontext) - 1);
     long rc = sc_su_grant_uid(skey, uid, &profile);
     env->ReleaseStringUTFChars(superKey, skey);

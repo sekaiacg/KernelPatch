@@ -78,7 +78,7 @@ int is_su_allow_uid(uid_t uid)
     struct allow_uid *pos;
     list_for_each_entry_rcu(pos, &allow_uid_list, list)
     {
-        if (pos->uid == uid) {
+        if (pos->uid == uid && pos->allow) {
             rcu_read_unlock();
             return 1;
         }
@@ -88,11 +88,21 @@ int is_su_allow_uid(uid_t uid)
 }
 KP_EXPORT_SYMBOL(is_su_allow_uid);
 
-int is_uid_excluded(uid_t uid)
+int uid_should_exclude(uid_t uid)
 {
-    return 1;
+    rcu_read_lock();
+    struct allow_uid *pos;
+    list_for_each_entry_rcu(pos, &allow_uid_list, list)
+    {
+        if (pos->uid == uid && pos->exclude) {
+            rcu_read_unlock();
+            return 1;
+        }
+    }
+    rcu_read_unlock();
+    return 0;
 }
-KP_EXPORT_SYMBOL(is_uid_excluded);
+KP_EXPORT_SYMBOL(uid_should_exclude);
 
 int su_add_allow_uid(uid_t uid, struct su_profile *profile, int async)
 {
@@ -107,16 +117,20 @@ int su_add_allow_uid(uid_t uid, struct su_profile *profile, int async)
     }
     struct allow_uid *new = (struct allow_uid *)vmalloc(sizeof(struct allow_uid));
     new->uid = profile->uid;
+    new->allow = profile->allow;
+    new->exclude = profile->exclude;
     memcpy(&new->profile, profile, sizeof(struct su_profile));
     new->profile.scontext[sizeof(new->profile.scontext) - 1] = '\0';
 
     spin_lock(&list_lock);
     if (old) { // update
         list_replace_rcu(&old->list, &new->list);
-        logkfi("update uid: %d, to_uid: %d, sctx: %s\n", uid, new->profile.to_uid, new->profile.scontext);
+        logkfi("update uid: %d, to_uid: %d, allow: %d, exclude: %d, sctx: %s\n", uid, new->profile.to_uid,
+               new->profile.allow, new->profile.exclude, new->profile.scontext);
     } else { // add new one
         list_add_rcu(&new->list, &allow_uid_list);
-        logkfi("new uid: %d, to_uid: %d, sctx: %s\n", uid, new->profile.to_uid, new->profile.scontext);
+        logkfi("new uid: %d, to_uid: %d, allow: %d, exclude: %d, sctx: %s\n", uid, new->profile.to_uid,
+               new->profile.allow, new->profile.exclude, new->profile.scontext);
     }
     spin_unlock(&list_lock);
 
@@ -141,7 +155,8 @@ int su_remove_allow_uid(uid_t uid, int async)
         if (pos->uid == uid) {
             list_del_rcu(&pos->list);
             spin_unlock(&list_lock);
-            logkfi("uid: %d, to_uid: %d, sctx: %s\n", pos->uid, pos->profile.to_uid, pos->profile.scontext);
+            logkfi("uid: %d, to_uid: %d, allow: %d, exclude: %d, sctx: %s\n", pos->uid, pos->profile.to_uid,
+                   pos->profile.allow, pos->profile.exclude, pos->profile.scontext);
             if (async) {
                 call_rcu(&pos->rcu, allow_reclaim_callback);
             } else {
@@ -205,7 +220,8 @@ int su_allow_uid_profile(uid_t uid, struct su_profile *__user uprofile)
     {
         if (pos->profile.uid != uid) continue;
         int cplen = compat_copy_to_user(uprofile, &pos->profile, sizeof(struct su_profile));
-	logkfd("profile: %d %d %s\n", uid, pos->profile.to_uid, pos->profile.scontext);
+        logkfd("profile: %d %d %d %d %s\n", uid, pos->profile.to_uid, pos->profile.allow, pos->profile.exclude,
+               pos->profile.scontext);
         if (cplen <= 0) {
             logkfd("compat_copy_to_user error: %d", cplen);
             rc = cplen;
@@ -283,12 +299,15 @@ static void before_do_execve(hook_fargs8_t *args, void *udata)
         struct su_profile profile = profile_su_allow_uid(uid);
 
         uid_t to_uid = profile.to_uid;
+        uint32_t allow = profile.allow;
+        uint32_t exclude = profile.exclude;
         const char *sctx = profile.scontext;
         commit_su(to_uid, sctx);
 
         struct file *filp = filp_open(apd_path, O_RDONLY, 0);
         if (!filp || IS_ERR(filp)) {
-            logkfi("call su uid: %d, to_uid: %d, sctx: %s\n", uid, to_uid, sctx);
+            logkfi("call su uid: %d, to_uid: %d, allow: %d, exclude: %d, sctx: %s\n", uid, to_uid, allow, exclude,
+                   sctx);
             strcpy((char *)filename->name, sh_path);
         } else {
             filp_close(filp, 0);
@@ -299,7 +318,8 @@ static void before_do_execve(hook_fargs8_t *args, void *udata)
                     get_user_arg_ptr((void *)args->args[filename_index + 1], (void *)args->args[filename_index + 2], 0);
                 cplen = compat_copy_to_user((char *__user)p0, legacy_su_path, sizeof(legacy_su_path));
             }
-            logkfi("call apd uid: %d, to_uid: %d, sctx: %s, cplen: %d\n", uid, to_uid, sctx, cplen);
+            logkfi("call apd uid: %d, to_uid: %d, allow: %d, exclude: %d, sctx: %s, cplen: %d\n", uid, to_uid, allow,
+                   exclude, sctx, cplen);
         }
     } else if (!strcmp(SUPERCMD, filename->name)) {
         void *ua0 = (void *)args->args[filename_index + 1];
@@ -422,6 +442,8 @@ static void handle_before_execve(hook_local_t *hook_local, char **__user u_filen
         struct su_profile profile = profile_su_allow_uid(uid);
 
         uid_t to_uid = profile.to_uid;
+        uint32_t allow = profile.allow;
+        uint32_t exclude = profile.exclude;
         const char *sctx = profile.scontext;
         commit_su(to_uid, sctx);
 
@@ -433,7 +455,8 @@ static void handle_before_execve(hook_local_t *hook_local, char **__user u_filen
             if (cplen > 0) {
                 hook_local->data0 = cplen;
                 hook_local->data1 = (uint64_t)u_filename_p;
-                logkfi("call su uid: %d, to_uid: %d, sctx: %s, cplen: %d\n", uid, to_uid, sctx, cplen);
+                logkfi("call su uid: %d, to_uid: %d, allow: %d, exclude: %d, sctx: %s, cplen: %d\n", uid, to_uid, allow,
+                       exclude, sctx, cplen);
             }
 #endif
             if (cplen <= 0) {
@@ -441,7 +464,8 @@ static void handle_before_execve(hook_local_t *hook_local, char **__user u_filen
                 if (uptr && !IS_ERR(uptr)) {
                     *u_filename_p = (char *__user)uptr;
                 }
-                logkfi("call su uid: %d, to_uid: %d, sctx: %s, uptr: %llx\n", uid, to_uid, sctx, uptr);
+                logkfi("call su uid: %d, to_uid: %d, exclude: %d, sctx: %s, uptr: %llx\n", uid, to_uid, exclude, sctx,
+                       uptr);
             }
         } else {
             filp_close(filp, 0);
@@ -481,13 +505,15 @@ static void handle_before_execve(hook_local_t *hook_local, char **__user u_filen
                     if (argv_cplen > 0) {
                         int rc = set_user_arg_ptr(is_compact, *uargv, 0, sp);
                         if (rc < 0) { // todo: modify entire argv
-                            logkfi("call apd argv error, uid: %d, to_uid: %d, sctx: %s, rc: %d\n", uid, to_uid, sctx,
-                                   rc);
+                            logkfi(
+                                "call apd argv error, uid: %d, to_uid: %d, allow: %d, exclude: %d, sctx: %s, rc: %d\n",
+                                uid, to_uid, allow, exclude, sctx, rc);
                         }
                     }
                 }
             }
-            logkfi("call apd uid: %d, to_uid: %d, sctx: %s, cplen: %d, %d\n", uid, to_uid, sctx, cplen, argv_cplen);
+            logkfi("call apd uid: %d, to_uid: %d, allow: %d, exclude: %d, sctx: %s, cplen: %d, %d\n", uid, to_uid,
+                   allow, exclude, sctx, cplen, argv_cplen);
         }
 
     } else if (unlikely(!strcmp(SUPERCMD, filename))) {
@@ -662,6 +688,7 @@ int su_compat_init()
     struct su_profile default_allow_profile = {
         .uid = 2000,
         .to_uid = 0,
+        .exclude = 0,
         .scontext = ALL_ALLOW_SCONTEXT,
     };
     su_add_allow_uid(default_allow_profile.uid, &default_allow_profile, 1);

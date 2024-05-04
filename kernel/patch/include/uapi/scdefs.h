@@ -59,6 +59,8 @@ struct su_profile
 {
     uid_t uid;
     uid_t to_uid;
+    uint32_t allow;
+    uint32_t exclude;
     char scontext[SUPERCALL_SCONTEXT_LEN];
 };
 
